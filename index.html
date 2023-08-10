@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1217.0.min.js"></script>
+    <style>
+        /* Your CSS styles here */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        a.back-button {
+            color: #007bff;
+        }
+
+        a.download-button {
+            background-color: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        a.download-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>S3 Bucket Contents</h1>
+    <ul id="file-list"></ul>
+
+    <script>
+       var awsConfig = {
+            accessKeyId: 'aws key id ',
+            secretAccessKey: 'key-secretAccessKey',
+            region: 'region'
+        };
+
+        AWS.config.update(awsConfig);
+
+        var s3 = new AWS.S3();
+
+        function listBucketContents(prefix = '') {
+            var params = {
+                Bucket: 'bucket name', // Replace with your bucket name
+                Prefix: prefix
+            };
+
+            s3.listObjectsV2(params, function(err, data) {
+                if (err) {
+                    console.log('Error:', err);
+                } else {
+                    console.log('Bucket Contents:', data.Contents);
+
+                    var fileList = document.getElementById('file-list');
+                    fileList.innerHTML = '';
+
+                    var backButton = document.createElement('a');
+                    backButton.textContent = 'Back';
+                    backButton.className = 'back-button';
+                    backButton.style.marginRight = '10px';
+                    backButton.href = '#';
+                    backButton.onclick = function() {
+                        var lastIndex = prefix.lastIndexOf('/', prefix.length - 2);
+                        var parentPrefix = prefix.substring(0, lastIndex + 1);
+                        listBucketContents(parentPrefix);
+                    };
+                    fileList.appendChild(backButton);
+
+                    data.Contents.forEach(function(item) {
+                        var listItem = document.createElement('li');
+                        listItem.style.display = 'flex';
+                        listItem.style.justifyContent = 'space-between';
+                        listItem.style.alignItems = 'center';
+
+                        var link = document.createElement('a');
+                        link.textContent = item.Key;
+                        if (item.Key.endsWith('/')) {
+                            link.style.cursor = 'pointer';
+                            link.onclick = function() {
+                                listBucketContents(item.Key); // Navigate into subfolder
+                            };
+                        }
+                        listItem.appendChild(link);
+
+                        if (!item.Key.endsWith('/')) {
+                            var downloadButton = document.createElement('a');
+                            downloadButton.textContent = 'Download';
+                            downloadButton.className = 'download-button';
+                            downloadButton.href = generateSignedDownloadUrl(item.Key);
+                            listItem.appendChild(downloadButton);
+                        }
+
+                        fileList.appendChild(listItem);
+                    });
+                }
+            });
+        }
+
+        function generateSignedDownloadUrl(key) {
+            var params = {
+                Bucket: 'allautomadic', // Replace with your bucket name
+                Key: key,
+                ResponseContentDisposition: 'attachment; filename="' + key + '"' // Set Content-Disposition header
+            };
+
+            return s3.getSignedUrl('getObject', params);
+        }
+        
+        // Call the function to list the root contents when the page loads
+        listBucketContents();
+    </script>
+</body>
+</html>
